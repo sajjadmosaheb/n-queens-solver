@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -23,7 +24,7 @@ export default function MainVisualizer() {
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
   
   const [solutions, setSolutions] = useState<Solution[]>([]);
-  const [viewingSolution, setViewingSolution] = useState<Solution | null>(null); // New state for viewing a selected solution
+  const [viewingSolution, setViewingSolution] = useState<Solution | null>(null);
   
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(DEFAULT_PLAYBACK_SPEED_MS);
@@ -40,7 +41,7 @@ export default function MainVisualizer() {
     setAlgorithmSteps([]);
     setCurrentStepIndex(-1);
     setSolutions([]);
-    setViewingSolution(null); // Reset viewing solution state
+    setViewingSolution(null);
     setIsPlaying(false);
     if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
     setIsSolving(false);
@@ -52,7 +53,7 @@ export default function MainVisualizer() {
 
   useEffect(() => {
     resetState(boardSizeN);
-  }, []);
+  }, []); // Removed boardSizeN dependency to prevent reset on size change after initial load. resetState handles size change.
 
   const handleBoardSizeChange = (newSize: number) => {
     setBoardSizeN(newSize);
@@ -72,18 +73,20 @@ export default function MainVisualizer() {
   };
 
   const handleStartSolving = async () => {
-    if (viewingSolution) setViewingSolution(null); // Clear viewing solution if starting new solve
+    if (viewingSolution) { 
+      setViewingSolution(null); 
+    }
     if (!initialQueenPos && !confirm(`No initial queen placed on the ${boardSizeN}x${boardSizeN} board. Start solving for all solutions from an empty board?`)) {
         return;
     }
-    if (isSolving || (algorithmSteps.length > 0 && !isFinished)) return;
+    if (isSolving || (algorithmSteps.length > 0 && !isFinished && !viewingSolution)) return;
 
 
     setIsSolving(true);
     setIsFinished(false);
     setSolutions([]); 
     setAlgorithmSteps([]);
-    setCurrentStepIndex(-1);
+    setCurrentStepIndex(-1); // Reset step index for new solve
     toast({ title: "Solving Started", description: `Generating algorithm steps for ${boardSizeN}-Queens...` });
     
     await new Promise(resolve => setTimeout(resolve, 50)); 
@@ -96,9 +99,15 @@ export default function MainVisualizer() {
     if (steps.length > 0) {
         displayStep(0, steps);
     } else {
-        toast({ title: "Solving Ready", description: `No steps generated.`, variant: "destructive" });
+        // This case (no steps generated) should ideally be covered by NO_SOLUTION_POSSIBLE or FINISHED if initialQueenPos leads to immediate end.
+        // For safety, if steps array is empty but we expected some, we might need a message.
+        // The solveNQueens logic should always push at least one step type (INITIAL_PLACE, NO_SOLUTION_POSSIBLE, or FINISHED_ALL_SOLUTIONS)
+        toast({ title: "Solving Information", description: `Algorithm analysis complete for ${boardSizeN}-Queens.`, variant: "default" });
     }
-    toast({ title: "Solving Ready", description: `Found ${steps.length} steps for ${boardSizeN}-Queens. Use controls to visualize.` });
+    // The toast for "Solving Ready" might be premature if steps are still being processed or if it's a very quick solve.
+    // Consider moving it or adjusting based on how `displayStep` and `solveNQueens` interact.
+    // For now, let's keep it, assuming `solveNQueens` is synchronous enough for this context.
+    toast({ title: "Solving Ready", description: `Generated ${steps.length} steps for ${boardSizeN}-Queens. Use controls to visualize.` });
   };
 
   const displayStep = useCallback((stepIndex: number, currentSteps: AlgorithmStep[] = algorithmSteps) => {
@@ -129,11 +138,11 @@ export default function MainVisualizer() {
   }, [algorithmSteps, boardSizeN]);
 
   useEffect(() => {
-    if (viewingSolution) return; // Don't display steps if viewing a solution
+    if (viewingSolution) return; 
     if (currentStepIndex >= 0 && currentStepIndex < algorithmSteps.length) {
       displayStep(currentStepIndex);
-    } else if (algorithmSteps.length === 0 && currentStepIndex === 0) {
-        setBoard(createEmptyBoard(boardSizeN));
+    } else if (algorithmSteps.length === 0 && currentStepIndex === 0) { // After reset, if currentStepIndex was 0
+        setBoard(createEmptyBoard(boardSizeN)); // Ensure board is empty
     }
   }, [currentStepIndex, algorithmSteps, displayStep, boardSizeN, viewingSolution]);
   
@@ -161,7 +170,7 @@ export default function MainVisualizer() {
   }, [isPlaying, playbackSpeed, handleNextStep, viewingSolution]); 
 
   const handlePlayPause = () => {
-    if (viewingSolution || isSolving || algorithmSteps.length === 0 || (currentStepIndex >= algorithmSteps.length - 1 && algorithmSteps.length > 0) ) return;
+    if (viewingSolution || isSolving || algorithmSteps.length === 0 || isFinished ) return;
     setIsPlaying(prev => !prev);
   };
 
@@ -172,26 +181,32 @@ export default function MainVisualizer() {
   const handleSolutionSelect = (solution: Solution) => {
     setViewingSolution(solution);
     setBoard(solution.board);
-    setIsPlaying(false);
+    setIsPlaying(false); // Pause algorithm playback
     if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
-    // Keep algorithmSteps and solutions, but indicate we are not stepping through algorithm
-    setCurrentStepIndex(-1); // Indicate not in algorithm playback
-    setIsFinished(true); // Treat as a "finished" state for algorithm controls
-    // initialQueenPlaced remains true as the board is effectively set
-    toast({ title: "Viewing Solution", description: `Displaying solution #${solution.number} on the main board.` });
+    // Do NOT change currentStepIndex or isFinished here. Preserve algorithm state.
+    toast({ title: "Viewing Solution", description: `Displaying solution #${solution.number}. Click 'Return to Visualization' to resume.` });
+  };
+
+  const handleResumeVisualization = () => {
+    setViewingSolution(null);
+    setIsPlaying(false); // Keep it paused, user can click play
+    toast({ title: "Visualization Resumed", description: "Returned to algorithm steps. Use controls to continue." });
+    // The useEffect watching currentStepIndex and viewingSolution will re-render the board to the current algorithm step
   };
 
   const currentVisibleStep = algorithmSteps[currentStepIndex] || null;
   
   let statusMessage: string;
   if (viewingSolution) {
-    statusMessage = `Viewing solution #${viewingSolution.number}. Click 'Reset' to clear.`;
+    statusMessage = `Viewing solution #${viewingSolution.number}. Click 'Return to Visualization' or 'Reset'.`;
   } else if (isSolving) {
     statusMessage = "Generating steps...";
   } else if (!initialQueenPlaced) {
     statusMessage = `Place the first queen on the ${boardSizeN}x${boardSizeN} board.`;
-  } else if (algorithmSteps.length === 0) {
+  } else if (algorithmSteps.length === 0 && initialQueenPlaced) { // After queen placed, before solving
     statusMessage = "Ready to solve. Click 'Start Solving'.";
+  } else if (algorithmSteps.length === 0) { // Before queen placed, or after reset and no queen placed
+     statusMessage = `Board is ${boardSizeN}x${boardSizeN}. Place the first queen or start solving.`;
   } else if (isPlaying) {
     statusMessage = "Playing...";
   } else if (isFinished) {
@@ -281,12 +296,13 @@ export default function MainVisualizer() {
             canStart={(initialQueenPlaced || boardSizeN > 0) && (algorithmSteps.length === 0 || isFinished) && !isSolving && !viewingSolution}
             canStep={!viewingSolution && algorithmSteps.length > 0 && currentStepIndex < algorithmSteps.length -1 && !isSolving && !isFinished}
             initialQueenPlaced={initialQueenPlaced}
-            isFinished={isFinished || !!viewingSolution} // Treat viewing solution as a "finished" state for controls
+            isFinished={isFinished} 
             onBoardSizeChange={handleBoardSizeChange}
             currentBoardSize={boardSizeN}
             disableBoardSizeChange={disableBoardSizeChange}
-            algorithmSteps={algorithmSteps}
+            algorithmStepsLength={algorithmSteps.length} 
             isViewingSolution={!!viewingSolution}
+            onResume={handleResumeVisualization}
           />
           <SolutionsDisplay 
             solutions={solutions} 
