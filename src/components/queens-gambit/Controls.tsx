@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AlgorithmStep } from '@/types'; // Import AlgorithmStep
+import type { AlgorithmStep } from '@/types';
 
 interface ControlsProps {
   onStart: () => void;
@@ -29,7 +29,8 @@ interface ControlsProps {
   onBoardSizeChange: (newSize: number) => void;
   currentBoardSize: number;
   disableBoardSizeChange: boolean;
-  algorithmSteps: AlgorithmStep[]; // Added algorithmSteps to props
+  algorithmSteps: AlgorithmStep[];
+  isViewingSolution: boolean; // Added prop
 }
 
 const BOARD_SIZES = [4, 5, 6, 7, 8, 9, 10];
@@ -49,7 +50,8 @@ export function Controls({
   onBoardSizeChange,
   currentBoardSize,
   disableBoardSizeChange,
-  algorithmSteps, // Destructure algorithmSteps
+  algorithmSteps,
+  isViewingSolution, // Destructure new prop
 }: ControlsProps) {
   return (
     <Card className="shadow-md">
@@ -62,7 +64,7 @@ export function Controls({
           <Select
             value={currentBoardSize.toString()}
             onValueChange={(value) => onBoardSizeChange(parseInt(value, 10))}
-            disabled={disableBoardSizeChange}
+            disabled={disableBoardSizeChange || isViewingSolution}
             aria-label="Select board size"
           >
             <SelectTrigger id="board-size-select" className="w-full">
@@ -76,13 +78,13 @@ export function Controls({
               ))}
             </SelectContent>
           </Select>
-           {disableBoardSizeChange && (
+           {(disableBoardSizeChange || isViewingSolution) && (
             <p className="text-xs text-muted-foreground">Reset board to change size.</p>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Button onClick={onStart} disabled={!canStart || isSolving} className="w-full">
+          <Button onClick={onStart} disabled={!canStart || isSolving || isViewingSolution} className="w-full">
             Start Solving
           </Button>
           <Button onClick={onReset} variant="outline" className="w-full">
@@ -93,7 +95,7 @@ export function Controls({
         <div className="grid grid-cols-2 gap-4">
           <Button 
             onClick={onPlayPause} 
-            disabled={!initialQueenPlaced || isSolving || algorithmSteps.length === 0 || isFinished} 
+            disabled={!initialQueenPlaced || isSolving || algorithmSteps.length === 0 || isFinished || isViewingSolution} 
             className="w-full"
             aria-label={isPlaying ? "Pause visualization" : "Play visualization"}
           >
@@ -102,7 +104,7 @@ export function Controls({
           </Button>
           <Button 
             onClick={onNextStep} 
-            disabled={!canStep || isPlaying || isSolving || isFinished} 
+            disabled={!canStep || isPlaying || isSolving || isFinished || isViewingSolution} 
             className="w-full"
             aria-label="Next step in visualization"
             >
@@ -119,9 +121,9 @@ export function Controls({
               min={100}
               max={2000}
               step={100}
-              defaultValue={[1600]} // Default to 500ms delay (2100 - 1600)
+              defaultValue={[1600]}
               onValueChange={(value) => onSpeedChange(value[0])}
-              disabled={isSolving || (!initialQueenPlaced && algorithmSteps.length === 0)}
+              disabled={isSolving || (!initialQueenPlaced && algorithmSteps.length === 0) || isViewingSolution || isFinished}
               className="my-1"
               aria-label="Playback speed slider"
             />

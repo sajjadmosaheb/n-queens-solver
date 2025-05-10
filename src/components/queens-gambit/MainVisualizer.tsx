@@ -23,6 +23,7 @@ export default function MainVisualizer() {
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
   
   const [solutions, setSolutions] = useState<Solution[]>([]);
+  const [viewingSolution, setViewingSolution] = useState<Solution | null>(null); // New state for viewing a selected solution
   
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(DEFAULT_PLAYBACK_SPEED_MS);
@@ -39,29 +40,28 @@ export default function MainVisualizer() {
     setAlgorithmSteps([]);
     setCurrentStepIndex(-1);
     setSolutions([]);
+    setViewingSolution(null); // Reset viewing solution state
     setIsPlaying(false);
     if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
     setIsSolving(false);
     setIsFinished(false);
-    // Toast for board size change is handled in handleBoardSizeChange
-    if (newBoardSize === boardSizeN) { // Only toast for normal reset
+    if (newBoardSize === boardSizeN) {
         toast({ title: "Board Reset", description: `Board reset to ${newBoardSize}x${newBoardSize}. Place the first queen to begin.` });
     }
-  }, [toast, boardSizeN]); // boardSizeN dependency for the toast message accuracy on reset
+  }, [toast, boardSizeN]);
 
   useEffect(() => {
-    // Initial reset when component mounts, using default board size.
     resetState(boardSizeN);
-  }, []); // Run once on mount, boardSizeN will be default
+  }, []);
 
   const handleBoardSizeChange = (newSize: number) => {
     setBoardSizeN(newSize);
-    resetState(newSize); // Reset state with the new size
+    resetState(newSize);
     toast({ title: "Board Size Changed", description: `Board size set to ${newSize}x${newSize}. Place the first queen.` });
   };
 
   const handleSquareClick = (row: number, col: number) => {
-    if (initialQueenPlaced || isSolving || algorithmSteps.length > 0) return;
+    if (initialQueenPlaced || isSolving || algorithmSteps.length > 0 || viewingSolution) return;
 
     const newBoard = createEmptyBoard(boardSizeN);
     newBoard[row][col] = 1;
@@ -72,28 +72,31 @@ export default function MainVisualizer() {
   };
 
   const handleStartSolving = async () => {
+    if (viewingSolution) setViewingSolution(null); // Clear viewing solution if starting new solve
     if (!initialQueenPos && !confirm(`No initial queen placed on the ${boardSizeN}x${boardSizeN} board. Start solving for all solutions from an empty board?`)) {
         return;
     }
-    if (isSolving || algorithmSteps.length > 0) return;
+    if (isSolving || (algorithmSteps.length > 0 && !isFinished)) return;
+
 
     setIsSolving(true);
+    setIsFinished(false);
+    setSolutions([]); 
+    setAlgorithmSteps([]);
+    setCurrentStepIndex(-1);
     toast({ title: "Solving Started", description: `Generating algorithm steps for ${boardSizeN}-Queens...` });
     
     await new Promise(resolve => setTimeout(resolve, 50)); 
 
     const steps = solveNQueens(boardSizeN, initialQueenPos);
     setAlgorithmSteps(steps);
-    setCurrentStepIndex(0); // Start from the first step
+    setCurrentStepIndex(0); 
     setIsSolving(false);
-    setIsFinished(false);
-    setSolutions([]); 
     
-    // Display first step immediately if steps were generated
     if (steps.length > 0) {
-        displayStep(0, steps); // Pass steps directly to avoid closure issues
+        displayStep(0, steps);
     } else {
-        toast({ title: "Solving Ready", description: `No steps generated (this might indicate an issue or immediate no solution).`, variant: "destructive" });
+        toast({ title: "Solving Ready", description: `No steps generated.`, variant: "destructive" });
     }
     toast({ title: "Solving Ready", description: `Found ${steps.length} steps for ${boardSizeN}-Queens. Use controls to visualize.` });
   };
@@ -123,31 +126,29 @@ export default function MainVisualizer() {
       setIsPlaying(false);
       setIsFinished(true);
     }
-  }, [algorithmSteps, boardSizeN]); // Added boardSizeN for solution ID uniqueness
+  }, [algorithmSteps, boardSizeN]);
 
   useEffect(() => {
+    if (viewingSolution) return; // Don't display steps if viewing a solution
     if (currentStepIndex >= 0 && currentStepIndex < algorithmSteps.length) {
       displayStep(currentStepIndex);
-    } else if (currentStepIndex === -1 && algorithmSteps.length > 0) {
-      // This case might be needed if setCurrentStepIndex(0) in handleStartSolving doesn't trigger this effect in time
-      // displayStep(0); // No, this can cause issues. displayStep is called directly in handleStartSolving now.
     } else if (algorithmSteps.length === 0 && currentStepIndex === 0) {
-        // If steps are empty but index became 0, reset board to empty initial.
         setBoard(createEmptyBoard(boardSizeN));
     }
-  }, [currentStepIndex, algorithmSteps, displayStep, boardSizeN]);
+  }, [currentStepIndex, algorithmSteps, displayStep, boardSizeN, viewingSolution]);
   
   const handleNextStep = useCallback(() => {
+    if (viewingSolution) return;
     if (currentStepIndex < algorithmSteps.length - 1 && !isSolving) {
       setCurrentStepIndex(prev => prev + 1);
     } else {
       setIsPlaying(false); 
     }
-  }, [currentStepIndex, algorithmSteps.length, isSolving]);
+  }, [currentStepIndex, algorithmSteps.length, isSolving, viewingSolution]);
 
 
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && !viewingSolution) {
       playbackIntervalRef.current = setInterval(() => {
         handleNextStep();
       }, playbackSpeed);
@@ -157,10 +158,10 @@ export default function MainVisualizer() {
     return () => {
       if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
     };
-  }, [isPlaying, playbackSpeed, handleNextStep]); 
+  }, [isPlaying, playbackSpeed, handleNextStep, viewingSolution]); 
 
   const handlePlayPause = () => {
-    if (isSolving || algorithmSteps.length === 0 || (currentStepIndex >= algorithmSteps.length - 1 && algorithmSteps.length > 0) ) return;
+    if (viewingSolution || isSolving || algorithmSteps.length === 0 || (currentStepIndex >= algorithmSteps.length - 1 && algorithmSteps.length > 0) ) return;
     setIsPlaying(prev => !prev);
   };
 
@@ -168,57 +169,79 @@ export default function MainVisualizer() {
     setPlaybackSpeed(2100 - speed); 
   };
 
+  const handleSolutionSelect = (solution: Solution) => {
+    setViewingSolution(solution);
+    setBoard(solution.board);
+    setIsPlaying(false);
+    if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
+    // Keep algorithmSteps and solutions, but indicate we are not stepping through algorithm
+    setCurrentStepIndex(-1); // Indicate not in algorithm playback
+    setIsFinished(true); // Treat as a "finished" state for algorithm controls
+    // initialQueenPlaced remains true as the board is effectively set
+    toast({ title: "Viewing Solution", description: `Displaying solution #${solution.number} on the main board.` });
+  };
+
   const currentVisibleStep = algorithmSteps[currentStepIndex] || null;
-  const statusMessage = isSolving ? "Generating steps..." 
-                      : !initialQueenPlaced ? `Place the first queen on the ${boardSizeN}x${boardSizeN} board.`
-                      : algorithmSteps.length === 0 ? "Ready to solve. Click 'Start Solving'."
-                      : isPlaying ? "Playing..."
-                      : isFinished ? "Visualization finished."
-                      : "Paused. Use controls to navigate.";
   
-  const currentQueenColChar = currentVisibleStep?.activeQueen ? String.fromCharCode(65 + currentVisibleStep.activeQueen.col) : '';
-  const currentQueenRowLabel = currentVisibleStep?.activeQueen ? boardSizeN - currentVisibleStep.activeQueen.row : '';
+  let statusMessage: string;
+  if (viewingSolution) {
+    statusMessage = `Viewing solution #${viewingSolution.number}. Click 'Reset' to clear.`;
+  } else if (isSolving) {
+    statusMessage = "Generating steps...";
+  } else if (!initialQueenPlaced) {
+    statusMessage = `Place the first queen on the ${boardSizeN}x${boardSizeN} board.`;
+  } else if (algorithmSteps.length === 0) {
+    statusMessage = "Ready to solve. Click 'Start Solving'.";
+  } else if (isPlaying) {
+    statusMessage = "Playing...";
+  } else if (isFinished) {
+    statusMessage = "Visualization finished.";
+  } else {
+    statusMessage = "Paused. Use controls to navigate.";
+  }
   
-  const messageWithCorrectedLabels = currentVisibleStep?.message
-    .replace(/\(([A-H])(\d+)\)/g, (match, colChar, boardRow) => {
-        const colIndex = colChar.charCodeAt(0) - 65;
-        const rowIndex = parseInt(boardRow, 10) - 1; // Assuming message uses 1-based row index as per display
-        if (colIndex >=0 && colIndex < boardSizeN && rowIndex >=0 && rowIndex < boardSizeN) {
-            return `(${String.fromCharCode(65 + colIndex)}${boardSizeN - rowIndex})`;
-        }
-        return match; // return original if out of bounds or malformed
-    })
-    .replace(/initial queen placed at \(([A-H])(\d+)\)/g, (match, colChar, boardRow) => {
-      const colIndex = colChar.charCodeAt(0) - 65;
-      const rowIndex = parseInt(boardRow, 10) - 1; // Assuming 1-based from message
-      if (colIndex >=0 && colIndex < boardSizeN && rowIndex >=0 && rowIndex < boardSizeN) {
-          return `Initial queen placed at (${String.fromCharCode(65 + colIndex)}${boardSizeN - rowIndex})`;
-      }
-      return match;
-    })
-    .replace(/Conflict at \(([A-H])(\d+)\)\. Cannot place queen\. Conflicting with (.*?)\./g, (match, colChar, boardRow, conflictsStr) => {
-        const colIndex = colChar.charCodeAt(0) - 65;
-        const rowIndex = parseInt(boardRow, 10) - 1;
-        const correctedConflicts = conflictsStr.split(', ').map((c:string) => {
-            const conflictMatch = c.match(/\(([A-H])(\d+)\)/);
-            if (conflictMatch) {
-                const confColIndex = conflictMatch[1].charCodeAt(0) - 65;
-                const confRowIndex = parseInt(conflictMatch[2], 10) -1;
-                 if (confColIndex >=0 && confColIndex < boardSizeN && confRowIndex >=0 && confRowIndex < boardSizeN) {
-                    return `(${String.fromCharCode(65 + confColIndex)}${boardSizeN - confRowIndex})`;
-                }
+  const messageWithCorrectedLabels = viewingSolution 
+    ? `Displaying solution #${viewingSolution.number}.`
+    : (currentVisibleStep?.message
+        .replace(/\(([A-H])(\d+)\)/g, (match, colChar, boardRow) => {
+            const colIndex = colChar.charCodeAt(0) - 65;
+            const rowIndex = parseInt(boardRow, 10) - 1;
+            if (colIndex >=0 && colIndex < boardSizeN && rowIndex >=0 && rowIndex < boardSizeN) {
+                return `(${String.fromCharCode(65 + colIndex)}${boardSizeN - rowIndex})`;
             }
-            return c;
-        }).join(', ');
+            return match;
+        })
+        .replace(/initial queen placed at \(([A-H])(\d+)\)/g, (match, colChar, boardRow) => {
+          const colIndex = colChar.charCodeAt(0) - 65;
+          const rowIndex = parseInt(boardRow, 10) - 1;
+          if (colIndex >=0 && colIndex < boardSizeN && rowIndex >=0 && rowIndex < boardSizeN) {
+              return `Initial queen placed at (${String.fromCharCode(65 + colIndex)}${boardSizeN - rowIndex})`;
+          }
+          return match;
+        })
+        .replace(/Conflict at \(([A-H])(\d+)\)\. Cannot place queen\. Conflicting with (.*?)\./g, (match, colChar, boardRow, conflictsStr) => {
+            const colIndex = colChar.charCodeAt(0) - 65;
+            const rowIndex = parseInt(boardRow, 10) - 1;
+            const correctedConflicts = conflictsStr.split(', ').map((c:string) => {
+                const conflictMatch = c.match(/\(([A-H])(\d+)\)/);
+                if (conflictMatch) {
+                    const confColIndex = conflictMatch[1].charCodeAt(0) - 65;
+                    const confRowIndex = parseInt(conflictMatch[2], 10) -1;
+                     if (confColIndex >=0 && confColIndex < boardSizeN && confRowIndex >=0 && confRowIndex < boardSizeN) {
+                        return `(${String.fromCharCode(65 + confColIndex)}${boardSizeN - confRowIndex})`;
+                    }
+                }
+                return c;
+            }).join(', ');
 
-        if (colIndex >=0 && colIndex < boardSizeN && rowIndex >=0 && rowIndex < boardSizeN) {
-            return `Conflict at (${String.fromCharCode(65 + colIndex)}${boardSizeN - rowIndex}). Cannot place queen. Conflicting with ${correctedConflicts}.`;
-        }
-        return match;
-    });
+            if (colIndex >=0 && colIndex < boardSizeN && rowIndex >=0 && rowIndex < boardSizeN) {
+                return `Conflict at (${String.fromCharCode(65 + colIndex)}${boardSizeN - rowIndex}). Cannot place queen. Conflicting with ${correctedConflicts}.`;
+            }
+            return match;
+        })) || `Board is ${boardSizeN}x${boardSizeN}. Place the first queen or start solving.`;
 
 
-  const disableBoardSizeChange = isSolving || initialQueenPlaced || algorithmSteps.length > 0;
+  const disableBoardSizeChange = isSolving || initialQueenPlaced || algorithmSteps.length > 0 || !!viewingSolution;
 
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col">
@@ -233,37 +256,43 @@ export default function MainVisualizer() {
             boardState={board}
             boardSize={boardSizeN}
             onSquareClick={handleSquareClick}
-            interactive={!initialQueenPlaced && !isSolving && algorithmSteps.length === 0}
-            activeQueen={currentVisibleStep?.activeQueen}
-            conflictingQueens={currentVisibleStep?.conflictingQueens}
+            interactive={!initialQueenPlaced && !isSolving && algorithmSteps.length === 0 && !viewingSolution}
+            activeQueen={viewingSolution ? undefined : currentVisibleStep?.activeQueen}
+            conflictingQueens={viewingSolution ? undefined : currentVisibleStep?.conflictingQueens}
           />
           <EpochDisplay
-            currentStepNumber={currentStepIndex + 1} // Display 1-based step number
-            totalSteps={algorithmSteps.length}
-            message={messageWithCorrectedLabels || `Board is ${boardSizeN}x${boardSizeN}. Place the first queen or start solving.`}
+            currentStepNumber={viewingSolution ? solutions.find(s => s.id === viewingSolution.id)?.number ?? 0 : currentStepIndex + 1}
+            totalSteps={viewingSolution ? solutions.length : algorithmSteps.length}
+            message={messageWithCorrectedLabels}
             status={statusMessage}
+            isViewingSolution={!!viewingSolution}
           />
         </div>
 
         <div className="space-y-6 md:col-span-1">
           <Controls
             onStart={handleStartSolving}
-            onReset={() => resetState(boardSizeN)} // Ensure reset uses current boardSizeN
+            onReset={() => resetState(boardSizeN)}
             onNextStep={handleNextStep}
             onPlayPause={handlePlayPause}
             onSpeedChange={handleSpeedChange}
             isPlaying={isPlaying}
             isSolving={isSolving}
-            canStart={(initialQueenPlaced || boardSizeN > 0) && algorithmSteps.length === 0 && !isSolving} // Allow start if board size selected even if no queen
-            canStep={algorithmSteps.length > 0 && currentStepIndex < algorithmSteps.length -1 && !isSolving}
+            canStart={(initialQueenPlaced || boardSizeN > 0) && (algorithmSteps.length === 0 || isFinished) && !isSolving && !viewingSolution}
+            canStep={!viewingSolution && algorithmSteps.length > 0 && currentStepIndex < algorithmSteps.length -1 && !isSolving && !isFinished}
             initialQueenPlaced={initialQueenPlaced}
-            isFinished={isFinished}
+            isFinished={isFinished || !!viewingSolution} // Treat viewing solution as a "finished" state for controls
             onBoardSizeChange={handleBoardSizeChange}
             currentBoardSize={boardSizeN}
             disableBoardSizeChange={disableBoardSizeChange}
-            algorithmSteps={algorithmSteps} // Pass algorithmSteps here
+            algorithmSteps={algorithmSteps}
+            isViewingSolution={!!viewingSolution}
           />
-          <SolutionsDisplay solutions={solutions} boardSize={boardSizeN} />
+          <SolutionsDisplay 
+            solutions={solutions} 
+            boardSize={boardSizeN} 
+            onSolutionClick={handleSolutionSelect}
+          />
         </div>
       </main>
       <footer className="text-center py-6 mt-8 border-t">
