@@ -7,17 +7,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SolutionsDisplayProps {
   solutions: Solution[];
+  boardSize: number; // To pass to SolutionBoard
 }
 
-export function SolutionsDisplay({ solutions }: SolutionsDisplayProps) {
+export function SolutionsDisplay({ solutions, boardSize }: SolutionsDisplayProps) {
   return (
     <Card className="shadow-md h-full flex flex-col">
       <CardHeader>
         <CardTitle>Solutions Found</CardTitle>
         <CardDescription>
           {solutions.length > 0 
-            ? `Displaying ${solutions.length} solution(s).`
-            : "No solutions found yet."}
+            ? `Displaying ${solutions.length} solution(s) for ${boardSize}x${boardSize}.`
+            : `No solutions found yet for ${boardSize}x${boardSize}.`}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden">
@@ -29,6 +30,7 @@ export function SolutionsDisplay({ solutions }: SolutionsDisplayProps) {
                   key={solution.id}
                   boardState={solution.board}
                   solutionNumber={solution.number}
+                  boardSize={boardSize} // Pass boardSize here
                 />
               ))}
             </div>
