@@ -1,78 +1,101 @@
 # N-Queens Problem Visualizer
+![image](https://github.com/user-attachments/assets/7f9d2a0c-d300-4194-81ab-b156dfb6b572)
 
-This project is a web-based visualizer for the N-Queens problem, built with Next.js and React. It allows users to explore different solutions to the N-Queens problem for a given board size (N). The primary focus is on visualizing valid configurations of queens on the chessboard.
+https://github.com/user-attachments/assets/85d67004-138f-43c5-9b9d-c4060004dac1
+
+This project is a web-based visualizer for the classic [N-Queens problem](https://en.wikipedia.org/wiki/Eight_queens_puzzle), built using [Next.js](https://nextjs.org/) and [React](https://react.dev/). It allows users to explore and visualize different valid configurations of $N$ queens placed on an $N \times N$ chessboard such that no two queens threaten each other.
 
 ## What is the N-Queens Problem?
 
-The N-Queens problem is a classic puzzle in computer science and mathematics. The goal is to place N chess queens on an N×N chessboard such that no two queens threaten each other. This means no two queens can share the same row, column, or diagonal.
+The N-Queens problem is a well-known combinatorial problem where the objective is to place $N$ non-attacking chess queens on an $N \times N$ chessboard. This constraint means that no two queens can share the same row, column, or diagonal.
 
-## Features (Based on File Analysis)
+## The Backtracking Algorithm for N-Queens
 
-- **Interactive Chessboard Visualization:** Displays the N×N chessboard with placed queens.
-- **Solution Display:** Shows different valid configurations of queens on the board.
-- **Controls:** Provides options to likely adjust the board size (N) and potentially trigger the generation or visualization of solutions.
-- **Shadcn UI Components:** Utilizes a set of pre-built UI components for a clean and modern look.
+One of the common approaches to solve the N-Queens problem is using a **backtracking algorithm**. This is a recursive approach that explores potential solutions incrementally. Here's a simplified explanation:
+
+1.  **Start with an empty board.**
+2.  **Try placing a queen in the first available column of the current row.**
+3.  **Check if the placement is valid** (i.e., the new queen doesn't attack any previously placed queens).
+4.  **If the placement is valid, move to the next row and repeat step 2.**
+5.  **If the placement is invalid, backtrack:** remove the current queen and try placing it in the next available column in the same row.
+6.  **If all columns in the current row have been tried without a valid placement, backtrack to the previous row.**
+7.  **Continue this process until either a valid configuration with $N$ queens is found, or all possibilities have been exhausted.**
+
+**In this GitHub project, we aim to visualize this backtracking algorithm in action and provide an interactive way to understand how different solutions to the N-Queens problem are discovered.**
+
+## Features
+
+Based on the project files, the visualizer likely includes the following features:
+
+* **Interactive Chessboard Visualization:** Dynamically displays an $N \times N$ chessboard with the placed queens, potentially showing the step-by-step process of the backtracking algorithm.
+* **Solution Display:** Presents different valid solutions to the N-Queens problem for the given board size.
+* **Board Size Control:** Allows users to adjust the size of the chessboard ($N$) to explore different problem instances.
+* **Algorithm Visualization Controls:** Provides options to step through the backtracking algorithm, visualize the placement attempts, and see how invalid placements are rejected.
+* **Modern UI:** Implements a clean and modern user interface leveraging [Shadcn UI](https://ui.shadcn.com/).
 
 ## Setup
 
-To run this project locally, follow these steps:
+To run this project locally, ensure you have [Node.js](https://nodejs.org/) (version 18.17 or later recommended) and npm (or yarn/pnpm) installed on your system.
 
-This project appears to be a web application likely built with Next.js, judging by the presence of next.config.ts, package.json, and files within the src/app directory. It seems to include components for visualizing the N-Queens problem (files in src/components/queens-gambit), as well as a variety of UI components (files in src/components/ui). There are also hooks, utility functions, and AI-related files (src/ai).
+### Installation Steps:
 
-Based on the file structure and common practices for Next.js projects, here's how you would typically install and run this project locally:
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository_url>
+    ```
+    Replace `<repository_url>` with the actual URL of this repository.
 
-Prerequisites:
+2.  **Navigate to the project directory:**
+    ```bash
+    cd <project_folder_name>
+    ```
+    Replace `<project_folder_name>` with the name of the cloned project folder.
 
-    Node.js and npm (or yarn/pnpm): You need to have Node.js installed on your system. You can download it from the official Node.js website (https://nodejs.org/). npm is usually included with Node.js, but you might prefer using yarn or pnpm as a package manager.
+3.  **Install dependencies:**
+    Choose your preferred package manager and run the corresponding command:
 
-Installation Steps:
+    * **Using npm:**
+        ```bash
+        npm install
+        ```
 
-    Clone the repository: If the project is in a Git repository, clone it to your local machine using the following command in your terminal:
+    * **Using yarn:**
+        ```bash
+        yarn install
+        ```
 
-git clone <repository_url>
+    * **Using pnpm:**
+        ```bash
+        pnpm install
+        ```
 
-Replace `<repository_url>` with the actual URL of the repository.
+### Running the Project:
 
-2. Navigate to the project directory: Change your current directory to the project's root folder:
+Once the dependencies are installed, start the development server using your package manager:
 
-cd <project_folder_name>
+* **Using npm:**
+    ```bash
+    npm run dev
+    ```
 
-Replace `<project_folder_name>` with the name of the cloned project folder.
+* **Using yarn:**
+    ```bash
+    yarn dev
+    ```
 
-3. Install dependencies: Use your preferred package manager to install the project's dependencies.
+* **Using pnpm:**
+    ```bash
+    pnpm dev
+    ```
 
-Using npm:
+After running the command, open your web browser and navigate to [http://localhost:3000](http://localhost:3000) to view the application.
 
-npm install
+## Additional Notes
 
-Using yarn:
-
-yarn install
-
-Using pnpm:
-
-pnpm install
-
-Running the Project:
-
-    Start the development server: Once the dependencies are installed, you can start the development server.
-
-    Using npm:
-
-npm run dev
-
-Using yarn:
-
-yarn dev
-
-Using pnpm:
-
-pnpm dev
-
-    Access the application: The development server will typically start on http://localhost:3000. Open your web browser and navigate to this address to see the application running.
-
-Additional Notes:
-
-    Environment Variables: Some projects require environment variables for configuration (e.g., API keys). Check if there's a .env.example file in the project root. If so, create a .env file by copying the example and filling in the necessary values.
-    Build for Production: To build the project for production, you would typically use a command like npm run build, yarn build, or pnpm build. After building, you can start the production server with npm start, yarn start, or pnpm start.
-    Specific Instructions: The package.json file contains scripts that define how to build, run, and perform other tasks in the project. Always check the scripts section of package.json for any project-specific instructions.
+* **Environment Variables:** If a `.env.example` file exists in the project root, copy it to `.env` and fill in any required environment variables.
+* **Building for Production:** To create a production build of the application, use the following command with your package manager:
+    * **npm:** `npm run build`
+    * **yarn:** `yarn build`
+    * **pnpm:** `pnpm build`
+    You can then start the production server using `npm start`, `yarn start`, or `pnpm start`.
+* **Package Scripts:** Refer to the `scripts` section in the `package.json` file for a complete list of available commands and their functionalities.
